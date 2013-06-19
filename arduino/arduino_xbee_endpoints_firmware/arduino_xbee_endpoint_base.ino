@@ -93,7 +93,7 @@
 
 #define AIN_MOTION_DETECT_LEFT        A0
 #define AIN_MOTION_DETECT_RIGHT       A1
-#define AIN_WATER_LEVEL_ANALOG        A2
+#define AIN_WATER_LEVEL_ANALOG        A3
 #define DI_WATER_LEVEL_MONITOR        6
 
 #define XBEE_TX_STRING_MAX_BYTES      50

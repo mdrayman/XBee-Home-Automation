@@ -20,12 +20,12 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This file's code was leveraged from the common base arduino_xbee_endpoint_base.ino
-// and then modified for the specific hardware configuration of this node as shown
-// below.  This node is a basic weather node measuring Temperature, Humidity, and
-// Barometric Pressure.  This node's code may be leveraged directly for other more
-// advanced weather-type endpoints such as those that measure windspeed, wind direction,
-// or other more advanced weather parameters.
+// This file is intended to be a common base for all XBee-Home-Automation node
+// endpoint module firmwares.  Copy and paste this base code to a new endpoint
+// firmware file in its own directory if it is a different class of endpoint node
+// such as motion detect, weather, door lock, light control, etc then modify on
+// top of it as the base hardware configuration (arduino uno r3, Xbee Series 2, etc)
+// will be common amongst all endpoints.
 //
 // Common Hardware Base:
 //   * Arduino UNO R3 with ATMega328P
@@ -33,9 +33,11 @@
 //   * XBee Shield for Arduino UNO R3
 //   * AD7415 I2C Temperature Sensor with AS pin connected to GND
 //
-// Additional Hardware Pieces Used On This Node:
+// Optional Hardware Pieces:
 //   * DHT11 I2C Humidity/Temp sensor
 //   * BMP085 I2C Pressure/Temp sensor
+//   * Water level and detect sensor (analog and digital, resp.)
+//   * PIR motion detection sensors (analog)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -225,10 +227,6 @@ void loop() {
   //else
     SendStringToXBee(&XBee_Data_String);
 
-/*
-  //
-  // NO WATER LEVEL SENSOR ON THIS NODE
-  //
   // --> DIN Water Level
   Get_Water_Level(&Water_Level_Tripped, &Water_Level);
   XBee_Data_String = "water|level:";
@@ -239,12 +237,7 @@ void loop() {
   //  Serial.println(XBee_Data_String);
   //else
     SendStringToXBee(&XBee_Data_String);
-*/
 
-/*
-  //
-  // NO PIR MOTION SENSORS ON THIS NODE
-  //
   // --> DIN PIR Motion Sensor(s)
   Get_Motion_Detect(&Motion_Detect_Right, &Motion_Detect_Left);
   XBee_Data_String = "motion|rightdetect:";
@@ -255,7 +248,7 @@ void loop() {
   //  Serial.println(XBee_Data_String);
   //else
     SendStringToXBee(&XBee_Data_String);
-*/
+
 
   // Delay to ensure XBee transmissions are sent before looping to power down XBee Radio:
   if( SERIAL_DEBUG_ON == 0 )
@@ -298,17 +291,17 @@ void Get_DHT11_Data(int DHT_pin, int *Status, long *Humidity, long *Temp)
     switch (chk)
     {
       case DHTLIB_OK:  
-  		Serial.print("OK,\t"); 
-  		break;
+        Serial.print("OK,\t"); 
+        break;
       case DHTLIB_ERROR_CHECKSUM: 
-  		Serial.print("Checksum error,\t"); 
-  		break;
+        Serial.print("Checksum error,\t"); 
+        break;
       case DHTLIB_ERROR_TIMEOUT: 
-  		Serial.print("Time out error,\t"); 
-  		break;
+        Serial.print("Time out error,\t"); 
+        break;
       default: 
-  		Serial.print("Unknown error,\t"); 
-  		break;
+        Serial.print("Unknown error,\t"); 
+        break;
     }
 
     Serial.print("Temp(C): ");
@@ -368,7 +361,6 @@ void Get_Water_Level(int *SensorTripped, int *WaterLevel)
   }
 }
 
-
 void Get_Motion_Detect(int * Detect_Right, int * Detect_Left)
 {
   // Read PIR sensors
@@ -395,7 +387,6 @@ void Get_Motion_Detect(int * Detect_Right, int * Detect_Left)
     Serial.println(*Detect_Left,1);
   }
 }
-
 
 void SendStringToXBee(String * Xbee_String)
 {

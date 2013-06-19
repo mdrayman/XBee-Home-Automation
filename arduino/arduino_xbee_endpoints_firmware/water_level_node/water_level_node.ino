@@ -22,10 +22,11 @@
 //
 // This file's code was leveraged from the common base arduino_xbee_endpoint_base.ino
 // and then modified for the specific hardware configuration of this node as shown
-// below.  This node is a basic weather node measuring Temperature, Humidity, and
-// Barometric Pressure.  This node's code may be leveraged directly for other more
-// advanced weather-type endpoints such as those that measure windspeed, wind direction,
-// or other more advanced weather parameters.
+// below.  This node is a basic water level and water presence detection endpoint.
+// It monitors water level and presence of water with a generic LM339 based circuit
+// that provides both an analog output and a digital output (1= no detect, 0= detect)
+// where the analog output is connected to Arduino UNO R3 analog input A3 and the
+// digital output is connected to Arduino UNO R3 digital input D6.
 //
 // Common Hardware Base:
 //   * Arduino UNO R3 with ATMega328P
@@ -35,7 +36,7 @@
 //
 // Additional Hardware Pieces Used On This Node:
 //   * DHT11 I2C Humidity/Temp sensor
-//   * BMP085 I2C Pressure/Temp sensor
+//   * Water level and detect sensor (analog and digital, resp.)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -140,11 +141,13 @@ void setup() {
     Serial.println("Setting up and initializing Sensors...");
   Wire.begin();
   delay(1000);
-  
+
+/*
   // BMP085 - Digital Pressure Sensor
   Sensor_BMP085.init(MODE_ULTRA_HIGHRES, 33020, true);  // 330.20 meters, true = using meter units
                   // this initialization is useful if current altitude is known,
                   // pressure will be calculated based on TruePressure and known altitude.
+*/
 
   AD7415_Status = Sensor_AD7415.init(); 
 
@@ -194,6 +197,7 @@ void loop() {
   if( SERIAL_DEBUG_ON == 1 )
     Serial.println("Gathering Sensor Data:");
 
+/*
   // --> IIC BMP085 temp/pressure
   Get_BMP085_Data(&BMP085_Temp, &BMP085_Pressure);
   XBee_Data_String = "BMP085|temp:";
@@ -204,6 +208,7 @@ void loop() {
   //  Serial.println(XBee_Data_String);
   //else
     SendStringToXBee(&XBee_Data_String);
+*/
 
   // --> 1-WIRE DHT11 temp/humidity
   Get_DHT11_Data(DHT11_INT_PIN, &DHT11_Status, &DHT11_Humidity, &DHT11_Temp);
@@ -225,10 +230,6 @@ void loop() {
   //else
     SendStringToXBee(&XBee_Data_String);
 
-/*
-  //
-  // NO WATER LEVEL SENSOR ON THIS NODE
-  //
   // --> DIN Water Level
   Get_Water_Level(&Water_Level_Tripped, &Water_Level);
   XBee_Data_String = "water|level:";
@@ -239,12 +240,8 @@ void loop() {
   //  Serial.println(XBee_Data_String);
   //else
     SendStringToXBee(&XBee_Data_String);
-*/
 
 /*
-  //
-  // NO PIR MOTION SENSORS ON THIS NODE
-  //
   // --> DIN PIR Motion Sensor(s)
   Get_Motion_Detect(&Motion_Detect_Right, &Motion_Detect_Left);
   XBee_Data_String = "motion|rightdetect:";
@@ -298,17 +295,17 @@ void Get_DHT11_Data(int DHT_pin, int *Status, long *Humidity, long *Temp)
     switch (chk)
     {
       case DHTLIB_OK:  
-  		Serial.print("OK,\t"); 
-  		break;
+        Serial.print("OK,\t"); 
+        break;
       case DHTLIB_ERROR_CHECKSUM: 
-  		Serial.print("Checksum error,\t"); 
-  		break;
+        Serial.print("Checksum error,\t"); 
+        break;
       case DHTLIB_ERROR_TIMEOUT: 
-  		Serial.print("Time out error,\t"); 
-  		break;
+        Serial.print("Time out error,\t"); 
+        break;
       default: 
-  		Serial.print("Unknown error,\t"); 
-  		break;
+        Serial.print("Unknown error,\t"); 
+        break;
     }
 
     Serial.print("Temp(C): ");
@@ -368,7 +365,6 @@ void Get_Water_Level(int *SensorTripped, int *WaterLevel)
   }
 }
 
-
 void Get_Motion_Detect(int * Detect_Right, int * Detect_Left)
 {
   // Read PIR sensors
@@ -395,7 +391,6 @@ void Get_Motion_Detect(int * Detect_Right, int * Detect_Left)
     Serial.println(*Detect_Left,1);
   }
 }
-
 
 void SendStringToXBee(String * Xbee_String)
 {
