@@ -82,23 +82,29 @@
 #define XBEE_ENDPOINT_BAUD_RATE       115200
 #define SERIAL_DEBUG_ON               0
 #define SERIAL_DEBUG_VERBOSE          0
+#define ENABLE_SENSOR_SLEEP_MODE      0
 
 // PIN VARIABLE DECLARATIONS:
 #define DHT11_INT_PIN                 2
 #define DHT11_EXT_PIN                 3
-#define DO_BEACON_LED                 7
+#define DO_MOTION_DETECT_RIGHT_LED    6
+#define DO_MOTION_DETECT_LEFT_LED     7
 #define DO_SENSOR_VCC                 8
 #define DO_XBEE_SLEEP_N               9
 #define DO_ARDUINO_UNO_R3_LED         13
 
-#define AIN_MOTION_DETECT_LEFT        A0
-#define AIN_MOTION_DETECT_RIGHT       A1
+#define AIN_MOTION_DETECT_RIGHT       A0
+#define AIN_MOTION_DETECT_LEFT        A1
 #define AIN_WATER_LEVEL_ANALOG        A3
 #define DI_WATER_LEVEL_MONITOR        6
 
 #define XBEE_TX_STRING_MAX_BYTES      50
 
 #define PIR_MOTION_DETECT_THRESHOLD   600
+
+#define ATMEGA328_16MHZ_FOR_COUNT_CYCLES_PER_SECOND  100
+#define POST_XBEE_XMIT_DELAY          4*ATMEGA328_16MHZ_FOR_COUNT_CYCLES_PER_SECOND
+#define XBEE_SLEEP_DELAY              5*ATMEGA328_16MHZ_FOR_COUNT_CYCLES_PER_SECOND
 
 
 // VARIABLE DECLARATIONS
@@ -116,7 +122,8 @@ long AD7415_temp = 0;
 int AD7415_Status = 0;
 int Water_Level_Tripped = 0, Water_Level = 0;
 int Motion_Detect_Right = 0, Motion_Detect_Left = 0;
-
+int Motion_Detect_Right_Sticky = 0, Motion_Detect_Left_Sticky = 0;
+long count = 0;
 
 // ----- SETUP -----
 // the setup routine runs once when you press reset:
@@ -131,8 +138,10 @@ void setup() {
   digitalWrite(DO_SENSOR_VCC, HIGH);
   pinMode(DO_ARDUINO_UNO_R3_LED, OUTPUT);
   digitalWrite(DO_ARDUINO_UNO_R3_LED, LOW);  // disable standard Arduino UNO R3 LED
-  pinMode(DO_BEACON_LED, OUTPUT);
-  digitalWrite(DO_BEACON_LED, HIGH);
+  pinMode(DO_MOTION_DETECT_RIGHT_LED, OUTPUT);
+  digitalWrite(DO_MOTION_DETECT_RIGHT_LED, LOW);
+  pinMode(DO_MOTION_DETECT_LEFT_LED, OUTPUT);
+  digitalWrite(DO_MOTION_DETECT_LEFT_LED, LOW);
   pinMode(DO_XBEE_SLEEP_N, OUTPUT);
 
   pinMode(DI_WATER_LEVEL_MONITOR, INPUT);
@@ -173,23 +182,42 @@ void loop() {
 
   if( SERIAL_DEBUG_ON == 0)
   {
-    // XBEE INACTIVE
-    digitalWrite(DO_BEACON_LED, LOW);
-    digitalWrite(DO_XBEE_SLEEP_N, HIGH);
-    digitalWrite(DO_SENSOR_VCC, LOW);
-    delay(5000);
+    if( ENABLE_SENSOR_SLEEP_MODE == 1 )
+    {
+      // XBEE INACTIVE
+      digitalWrite(DO_XBEE_SLEEP_N, HIGH);
+      digitalWrite(DO_SENSOR_VCC, LOW);
+      //delay(5000);
+    }
+    
+    for(count=0; count<20000; count++)
+    {
+        Get_Motion_Detect(&Motion_Detect_Right, &Motion_Detect_Left);
+        if( Motion_Detect_Right == 1 )
+        {
+          Motion_Detect_Right_Sticky = 1;
+          digitalWrite(DO_MOTION_DETECT_RIGHT_LED, HIGH);
+        }
+        if( Motion_Detect_Left == 1 )
+        {
+          Motion_Detect_Left_Sticky = 1;
+          digitalWrite(DO_MOTION_DETECT_LEFT_LED, HIGH);
+        }
+    }
   }
   else
     Serial.println("Sleeping XBee, Sensors, and Arduino...");
 
   // XBEE ACTIVE - TRANSMIT
-  digitalWrite(DO_BEACON_LED, HIGH);    // Enable Beacon LED
   digitalWrite(DO_XBEE_SLEEP_N, LOW);   // Pull XBee radio out of Pin Hibernate
   digitalWrite(DO_SENSOR_VCC, HIGH);    // Apply VCC to all Sensors
-  if( SERIAL_DEBUG_ON == 1)
-    Serial.println("Waking up!");
-  else
-   delay(1000);
+  if( ENABLE_SENSOR_SLEEP_MODE == 1 )
+  {
+    if( SERIAL_DEBUG_ON == 1)
+      Serial.println("Waking up!");
+    else
+      delay(1000);
+  }
 
 
   // Gather Sensor Data
@@ -227,6 +255,10 @@ void loop() {
   //else
     SendStringToXBee(&XBee_Data_String);
 
+/*
+  //
+  // NO WATER LEVEL SENSOR ON THIS NODE
+  //
   // --> DIN Water Level
   Get_Water_Level(&Water_Level_Tripped, &Water_Level);
   XBee_Data_String = "water|level:";
@@ -237,13 +269,14 @@ void loop() {
   //  Serial.println(XBee_Data_String);
   //else
     SendStringToXBee(&XBee_Data_String);
+*/
 
   // --> DIN PIR Motion Sensor(s)
-  Get_Motion_Detect(&Motion_Detect_Right, &Motion_Detect_Left);
+  //Get_Motion_Detect(&Motion_Detect_Right, &Motion_Detect_Left);
   XBee_Data_String = "motion|rightdetect:";
-  XBee_Data_String = XBee_Data_String + Motion_Detect_Right;
+  XBee_Data_String = XBee_Data_String + Motion_Detect_Right_Sticky;
   XBee_Data_String = XBee_Data_String + "|leftdetect:";
-  XBee_Data_String = XBee_Data_String + Motion_Detect_Left;
+  XBee_Data_String = XBee_Data_String + Motion_Detect_Left_Sticky;
   //if( SERIAL_DEBUG_ON == 1 )
   //  Serial.println(XBee_Data_String);
   //else
@@ -251,8 +284,26 @@ void loop() {
 
 
   // Delay to ensure XBee transmissions are sent before looping to power down XBee Radio:
+  Motion_Detect_Right_Sticky = 0;
+  Motion_Detect_Left_Sticky = 0;
+  digitalWrite(DO_MOTION_DETECT_RIGHT_LED, LOW);
+  digitalWrite(DO_MOTION_DETECT_LEFT_LED, LOW);
   if( SERIAL_DEBUG_ON == 0 )
-    delay(4000);
+    //delay(4000);
+    for(count=0; count<15000; count++)
+    {
+        Get_Motion_Detect(&Motion_Detect_Right, &Motion_Detect_Left);
+        if( Motion_Detect_Right == 1 )
+        {
+          Motion_Detect_Right_Sticky = 1;
+          digitalWrite(DO_MOTION_DETECT_RIGHT_LED, HIGH);
+        }
+        if( Motion_Detect_Left == 1 )
+        {
+          Motion_Detect_Left_Sticky = 1;
+          digitalWrite(DO_MOTION_DETECT_LEFT_LED, HIGH);
+        }
+    }
 }
 // ----------------
 

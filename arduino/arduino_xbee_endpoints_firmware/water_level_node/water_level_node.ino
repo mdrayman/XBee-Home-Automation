@@ -81,6 +81,7 @@
 #define XBEE_ENDPOINT_BAUD_RATE       115200
 #define SERIAL_DEBUG_ON               0
 #define SERIAL_DEBUG_VERBOSE          0
+#define ENABLE_SENSOR_SLEEP_MODE      0
 
 // PIN VARIABLE DECLARATIONS:
 #define DHT11_INT_PIN                 2
@@ -176,8 +177,11 @@ void loop() {
   {
     // XBEE INACTIVE
     digitalWrite(DO_BEACON_LED, LOW);
-    digitalWrite(DO_XBEE_SLEEP_N, HIGH);
-    digitalWrite(DO_SENSOR_VCC, LOW);
+    if( ENABLE_SENSOR_SLEEP_MODE == 1 )
+    {
+      digitalWrite(DO_XBEE_SLEEP_N, HIGH);
+      digitalWrite(DO_SENSOR_VCC, LOW);
+    }
     delay(5000);
   }
   else
